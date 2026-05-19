@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SMTP Proxy Management</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Auth Overlay -->
+  <div id="auth-overlay" class="overlay hidden">
+    <div class="card auth-card">
+      <h2>API Authentication</h2>
+      <p>Please enter the API Secret to access the dashboard.</p>
+      <input type="password" id="auth-secret" placeholder="Enter API Secret" class="form-input">
+      <button id="auth-submit" class="btn btn-primary">Login</button>
+      <div id="auth-error" class="error-msg hidden">Invalid secret.</div>
+    </div>
+  </div>
+
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+        SMTP Proxy
+      </div>
+      <nav class="nav-menu">
+        <a href="#accounts" class="nav-item active" data-view="accounts">Accounts</a>
+        <a href="#rules" class="nav-item" data-view="rules">Rules</a>
+        <a href="#stats" class="nav-item" data-view="stats">Stats</a>
+        <a href="#settings" class="nav-item" data-view="settings">Settings</a>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <h1 id="page-title">Accounts</h1>
+        <div class="health-badge" id="health-badge">Checking...</div>
+      </header>
+
+      <!-- Views -->
+      <div class="view-container">
+        <!-- Accounts View -->
+        <div id="view-accounts" class="view active">
+          <div class="toolbar">
+            <button class="btn btn-primary" onclick="app.showAddAccountModal()">+ Add Account</button>
+            <div class="spacer"></div>
+            <button class="btn btn-secondary" onclick="app.showImportModal()">Import</button>
+            <div class="dropdown">
+              <button class="btn btn-secondary" onclick="app.toggleExportDropdown()">Export ▾</button>
+              <div id="export-dropdown" class="dropdown-content hidden">
+                <a href="#" onclick="app.exportData('json')">Export JSON</a>
+                <a href="#" onclick="app.exportData('csv')">Export CSV (Accounts)</a>
+              </div>
+            </div>
+            <button class="btn btn-secondary" onclick="app.fetchAccounts()">Refresh</button>
+          </div>
+          <div class="table-container">
+            <table class="data-table" id="accounts-table">
+              <thead>
+                <tr>
+                  <th>Provider</th>
+                  <th>Email</th>
+                  <th>Today</th>
+                  <th>Hour</th>
+                  <th>Total Sent</th>
+                  <th>Errors</th>
+                  <th>Enabled</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody><!-- Populated by JS --></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Rules View -->
+        <div id="view-rules" class="view hidden">
+          <div class="toolbar">
+            <button class="btn btn-primary" onclick="app.showAddRuleModal()">+ Add Rule</button>
+            <button class="btn btn-secondary" onclick="app.fetchRules()">Refresh</button>
+          </div>
+          <div class="rules-list" id="rules-list">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Stats View -->
+        <div id="view-stats" class="view hidden">
+          <div class="toolbar">
+            <button class="btn btn-secondary" onclick="app.fetchStats()">Refresh</button>
+            <button class="btn btn-danger" onclick="app.resetAllStats()">Reset All Stats</button>
+          </div>
+          <div class="stats-summary" id="stats-summary">
+            <!-- Summary cards -->
+          </div>
+          <div class="table-container">
+            <table class="data-table" id="stats-table">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Today</th>
+                  <th>Hour</th>
+                  <th>Total</th>
+                  <th>Errors</th>
+                  <th>Available</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody><!-- Populated by JS --></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Settings View -->
+        <div id="view-settings" class="view hidden">
+          <div class="card settings-card">
+            <h2>Proxy Settings</h2>
+            <form id="settings-form" onsubmit="app.saveSettings(event)">
+              <div class="form-group">
+                <label>Retry Max Attempts</label>
+                <input type="number" name="retryMaxAttempts" class="form-input" required>
+              </div>
+              <div class="form-group">
+                <label>Retry Delay (ms)</label>
+                <input type="number" name="retryDelayMs" class="form-input" required>
+              </div>
+              <div class="form-group checkbox-group">
+                <input type="checkbox" name="retryExponentialBackoff" id="retryExponentialBackoff">
+                <label for="retryExponentialBackoff">Exponential Backoff</label>
+              </div>
+              <hr>
+              <div class="form-group">
+                <label>Default Daily Limit</label>
+                <input type="number" name="defaultDailyLimit" class="form-input" required>
+              </div>
+              <div class="form-group">
+                <label>Default Hourly Limit</label>
+                <input type="number" name="defaultHourlyLimit" class="form-input" required>
+              </div>
+              <button type="submit" class="btn btn-primary">Save Settings</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modals -->
+  <!-- Account Modal -->
+  <div id="account-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2 id="account-modal-title">Add Account</h2>
+      <form id="account-form" onsubmit="app.saveAccount(event)">
+        <input type="hidden" id="account-id">
+        <div class="form-group">
+          <label>Provider</label>
+          <select id="account-provider" class="form-input" onchange="app.onProviderChange()" required>
+            <option value="gmail">Gmail</option>
+            <option value="outlook">Outlook</option>
+            <option value="yahoo">Yahoo</option>
+            <option value="zoho">Zoho</option>
+            <option value="sendgrid">SendGrid</option>
+            <option value="mailgun">Mailgun</option>
+            <option value="custom">Custom SMTP</option>
+          </select>
+        </div>
+        <div id="custom-smtp-fields" class="hidden">
+          <div class="form-group"><label>Host</label><input type="text" id="account-host" class="form-input"></div>
+          <div class="form-group"><label>Port</label><input type="number" id="account-port" class="form-input"></div>
+          <div class="form-group checkbox-group"><input type="checkbox" id="account-secure"><label for="account-secure">Secure (SSL/TLS)</label></div>
+        </div>
+        <div class="form-group"><label>Email / Username</label><input type="text" id="account-user" class="form-input" required></div>
+        <div class="form-group"><label>Password / App Password</label><input type="password" id="account-pass" class="form-input" required></div>
+        <div class="form-group"><label>Daily Limit</label><input type="number" id="account-daily" class="form-input" required value="400"></div>
+        <div class="form-group"><label>Hourly Limit</label><input type="number" id="account-hourly" class="form-input" required value="100"></div>
+        <div class="form-group"><label>From Name (Optional)</label><input type="text" id="account-from-name" class="form-input"></div>
+        <div class="form-group"><label>From Address (Optional)</label><input type="text" id="account-from-address" class="form-input"></div>
+        <div class="form-group checkbox-group"><input type="checkbox" id="account-enabled" checked><label for="account-enabled">Enabled</label></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
+          <button type="button" class="btn btn-secondary" onclick="app.testAccount()">Test Connection</button>
+          <button type="submit" class="btn btn-primary">Save Account</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Rule Modal -->
+  <div id="rule-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2 id="rule-modal-title">Add Rule</h2>
+      <form id="rule-form" onsubmit="app.saveRule(event)">
+        <input type="hidden" id="rule-id">
+        <div class="form-group"><label>Name</label><input type="text" id="rule-name" class="form-input" required></div>
+        <div class="form-group"><label>Order (Lower is higher priority)</label><input type="number" id="rule-order" class="form-input" required value="100"></div>
+        <fieldset>
+          <legend>Match Conditions (Regex)</legend>
+          <div class="form-group"><label>Subject</label><input type="text" id="rule-match-subject" class="form-input"></div>
+          <div class="form-group"><label>From</label><input type="text" id="rule-match-from" class="form-input"></div>
+          <div class="form-group"><label>To</label><input type="text" id="rule-match-to" class="form-input"></div>
+        </fieldset>
+        <div class="form-group">
+          <label>Accounts (Ctrl/Cmd+Click to select multiple)</label>
+          <select id="rule-accounts" class="form-input" multiple size="5"></select>
+        </div>
+        <div class="form-group checkbox-group"><input type="checkbox" id="rule-enabled" checked><label for="rule-enabled">Enabled</label></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Rule</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Import Modal -->
+  <div id="import-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Import Data</h2>
+      <form id="import-form" onsubmit="app.submitImport(event)">
+        <div class="form-group">
+          <label>File (JSON or CSV)</label>
+          <input type="file" id="import-file" class="form-input" accept=".json,.csv" required>
+        </div>
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="import-overwrite">
+          <label for="import-overwrite">Overwrite existing accounts</label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Import</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  
+  <script src="app.js"></script>
+</body>
+</html>

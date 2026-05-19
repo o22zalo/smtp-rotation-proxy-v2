@@ -1,0 +1,33 @@
+version: '3.8'
+services:
+  smtp-proxy:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "2525:2525"   # SMTP ext port cho Gitea
+      - "3000:3000"   # API & UI (Caddy sẽ reverse proxy)
+    env_file: .env
+    volumes:
+      - ./stats.json:/app/stats.json  # Fallback stats local
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - smtp-proxy
+
+volumes:
+  caddy_data:
+  caddy_config:

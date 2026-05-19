@@ -1,0 +1,23 @@
+# Caddyfile.example
+# Thay "smtp.yourdomain.com" bằng domain thật của bạn.
+# Tạo hash password: caddy hash-password --plaintext "yourpassword"
+
+smtp.yourdomain.com {
+    # Bảo vệ toàn bộ UI (không bảo vệ /api/* vì đã có API_SECRET)
+    @ui {
+        not path /api/*
+        not path /health
+    }
+
+    basicauth @ui {
+        # Thêm users: <username> <bcrypt-hash>
+        admin $2a$14$...your-bcrypt-hash-here...
+    }
+
+    reverse_proxy smtp-proxy:3000
+
+    # Logging
+    log {
+        output file /var/log/caddy/smtp-proxy.log
+    }
+}

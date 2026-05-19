@@ -1,0 +1,229 @@
+### api.http — SMTP Proxy API Tests
+### Yêu cầu: VS Code REST Client extension hoặc httpyac
+### Copy .env.example -> .env và điền giá trị trước khi chạy
+
+@baseUrl = http://localhost:3000
+@apiSecret = {{$dotenv API_SECRET}}
+@testEmail = test@example.com
+
+### ─────────────────────────────────────────────────
+### HEALTH
+### ─────────────────────────────────────────────────
+
+# @name health
+GET {{baseUrl}}/api/health
+Content-Type: application/json
+
+###
+
+### ─────────────────────────────────────────────────
+### ACCOUNTS
+### ─────────────────────────────────────────────────
+
+# @name listAccounts
+GET {{baseUrl}}/api/accounts
+X-API-Secret: {{apiSecret}}
+
+###
+
+# @name createAccount
+POST {{baseUrl}}/api/accounts
+X-API-Secret: {{apiSecret}}
+Content-Type: application/json
+
+{
+  "provider": "gmail",
+  "auth": {
+    "user": "example@gmail.com",
+    "pass": "xxxx xxxx xxxx xxxx"
+  },
+  "dailyLimit": 400,
+  "hourlyLimit": 100,
+  "fromName": "My App",
+  "fromAddress": "noreply@mydomain.com",
+  "enabled": true
+}
+
+###
+
+# @name updateAccount
+PUT {{baseUrl}}/api/accounts/example
+X-API-Secret: {{apiSecret}}
+Content-Type: application/json
+
+{
+  "dailyLimit": 500,
+  "enabled": false
+}
+
+###
+
+# @name testAccount
+POST {{baseUrl}}/api/accounts/example/test
+X-API-Secret: {{apiSecret}}
+Content-Type: application/json
+
+{
+  "to": "{{testEmail}}"
+}
+
+###
+
+# @name deleteAccount
+DELETE {{baseUrl}}/api/accounts/example
+X-API-Secret: {{apiSecret}}
+
+###
+
+### ─────────────────────────────────────────────────
+### RULES
+### ─────────────────────────────────────────────────
+
+# @name listRules
+GET {{baseUrl}}/api/rules
+X-API-Secret: {{apiSecret}}
+
+###
+
+# @name createRule
+POST {{baseUrl}}/api/rules
+X-API-Secret: {{apiSecret}}
+Content-Type: application/json
+
+{
+  "name": "Critical Emails",
+  "order": 1,
+  "match": {
+    "subject": "\\[CRITICAL\\]|\\[URGENT\\]",
+    "from": "",
+    "to": ""
+  },
+  "accounts": [],
+  "enabled": true
+}
+
+###
+
+# @name updateRule
+PUT {{baseUrl}}/api/rules/critical-emails
+X-API-Secret: {{apiSecret}}
+Content-Type: application/json
+
+{
+  "enabled": false
+}
+
+###
+
+# @name deleteRule
+DELETE {{baseUrl}}/api/rules/critical-emails
+X-API-Secret: {{apiSecret}}
+
+###
+
+### ─────────────────────────────────────────────────
+### STATS
+### ─────────────────────────────────────────────────
+
+# @name getStats
+GET {{baseUrl}}/api/stats
+X-API-Secret: {{apiSecret}}
+
+###
+
+# @name resetAllStats
+POST {{baseUrl}}/api/stats/reset
+X-API-Secret: {{apiSecret}}
+Content-Type: application/json
+
+{}
+
+###
+
+# @name resetOneAccountStats
+POST {{baseUrl}}/api/stats/reset
+X-API-Secret: {{apiSecret}}
+Content-Type: application/json
+
+{
+  "accountId": "example"
+}
+
+###
+
+### ─────────────────────────────────────────────────
+### BACKUP / IMPORT / EXPORT
+### ─────────────────────────────────────────────────
+
+# @name backup
+GET {{baseUrl}}/api/backup
+X-API-Secret: {{apiSecret}}
+
+###
+
+# @name exportJson
+GET {{baseUrl}}/api/export?format=json
+X-API-Secret: {{apiSecret}}
+
+###
+
+# @name exportCsv
+GET {{baseUrl}}/api/export?format=csv
+X-API-Secret: {{apiSecret}}
+
+###
+# Import: dùng curl vì REST Client không handle multipart tốt
+# curl -X POST http://localhost:3000/api/import \
+#   -H "X-API-Secret: $API_SECRET" \
+#   -F "file=@accounts.json"
+#
+# curl -X POST http://localhost:3000/api/import?overwrite=true \
+#   -H "X-API-Secret: $API_SECRET" \
+#   -F "file=@accounts.csv"
+###
+
+### ─────────────────────────────────────────────────
+### SETTINGS
+### ─────────────────────────────────────────────────
+
+# @name getSettings
+GET {{baseUrl}}/api/settings
+X-API-Secret: {{apiSecret}}
+
+###
+
+# @name updateSettings
+PUT {{baseUrl}}/api/settings
+X-API-Secret: {{apiSecret}}
+Content-Type: application/json
+
+{
+  "retryMaxAttempts": 3,
+  "retryDelayMs": 5000,
+  "retryExponentialBackoff": true,
+  "defaultDailyLimit": 400,
+  "defaultHourlyLimit": 100
+}
+
+###
+
+### ─────────────────────────────────────────────────
+### ERROR CASES (kiểm tra xử lý lỗi)
+### ─────────────────────────────────────────────────
+
+# @name unauthorizedRequest (expect 401)
+GET {{baseUrl}}/api/accounts
+X-API-Secret: wrong-secret
+
+###
+
+# @name createAccountMissingFields (expect 400)
+POST {{baseUrl}}/api/accounts
+X-API-Secret: {{apiSecret}}
+Content-Type: application/json
+
+{
+  "provider": "gmail"
+}
+
+###

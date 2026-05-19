@@ -8,6 +8,7 @@ const statsRouter = require('./routes/stats');
 const testRouter = require('./routes/test');
 const backupRouter = require('./routes/backup');
 const importExportRouter = require('./routes/import-export');
+const smtpUsersRouter = require('./routes/smtp-users');
 
 const app = express();
 app.use(cors());
@@ -51,6 +52,7 @@ app.use('/api/stats', statsRouter);
 app.use('/api/accounts', testRouter); // mounts /:id/test
 app.use('/api/backup', backupRouter);
 app.use('/api', importExportRouter); // mounts /import and /export
+app.use('/api/smtp-users', smtpUsersRouter); // SMTP virtual users (Gitea, etc.)
 
 // Static UI
 app.use(express.static(path.join(__dirname, '../ui')));

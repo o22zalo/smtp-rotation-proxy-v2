@@ -4,7 +4,7 @@
 
 @baseUrl = http://localhost:3000
 @apiSecret = {{$dotenv API_SECRET}}
-@testEmail = test@example.com
+@testEmail = o25.8plus.0519@gmail.com
 
 ### ─────────────────────────────────────────────────
 ### HEALTH

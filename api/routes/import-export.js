@@ -110,8 +110,7 @@ router.post('/import', upload.single('file'), async (req, res) => {
       
       if (data.rules && Array.isArray(data.rules)) {
         for (const rule of data.rules) {
-          let ruleId = rule.id || rule.name.toLowerCase().replace(/\s+/g, '-');
-          ruleId = ruleId.replace(/[.#$\[\]]/g, '');
+          const ruleId = rule.id || rule.name.toLowerCase().replace(/\s+/g, '-');
           rule.id = ruleId;
           await firebase.setRule(ruleId, rule);
         }

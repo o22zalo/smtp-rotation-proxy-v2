@@ -188,6 +188,46 @@ async function updateSettings(settingsData) {
   }
 }
 
+// ─── SMTP Users (virtual proxy credentials) ─────────────────────────────────
+// Path: smtp-proxy/smtpUsers/{id}
+// Dùng để Gitea / bất kỳ client nào xác thực vào SMTP proxy
+// với tài khoản riêng, không cần biết email account thực.
+
+async function getSmtpUsers() {
+  if (!db) return null;
+  try {
+    const ref = db.ref('smtp-proxy/smtpUsers');
+    const snapshot = await ref.once('value');
+    const data = snapshot.val() || {};
+    return Object.values(data).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  } catch (err) {
+    console.error('[DB] getSmtpUsers error:', err);
+    return null;
+  }
+}
+
+async function setSmtpUser(id, userData) {
+  if (!db) return false;
+  try {
+    await db.ref(`smtp-proxy/smtpUsers/${id}`).set(userData);
+    return true;
+  } catch (err) {
+    console.error('[DB] setSmtpUser error:', err);
+    return false;
+  }
+}
+
+async function deleteSmtpUser(id) {
+  if (!db) return false;
+  try {
+    await db.ref(`smtp-proxy/smtpUsers/${id}`).remove();
+    return true;
+  } catch (err) {
+    console.error('[DB] deleteSmtpUser error:', err);
+    return false;
+  }
+}
+
 module.exports = {
   isFirebaseReady,
   getAccounts,
@@ -200,5 +240,8 @@ module.exports = {
   updateStats,
   resetStats,
   getSettings,
-  updateSettings
+  updateSettings,
+  getSmtpUsers,
+  setSmtpUser,
+  deleteSmtpUser
 };

@@ -29,6 +29,7 @@
       <nav class="nav-menu">
         <a href="#accounts" class="nav-item active" data-view="accounts">Accounts</a>
         <a href="#rules" class="nav-item" data-view="rules">Rules</a>
+        <a href="#smtp-users" class="nav-item" data-view="smtp-users">SMTP Users</a>
         <a href="#stats" class="nav-item" data-view="stats">Stats</a>
         <a href="#settings" class="nav-item" data-view="settings">Settings</a>
       </nav>
@@ -114,6 +115,42 @@
           </div>
         </div>
 
+        <!-- SMTP Users View -->
+        <div id="view-smtp-users" class="view hidden">
+          <div class="info-banner">
+            🔑 SMTP Users là tài khoản ảo để Gitea / các ứng dụng xác thực vào SMTP proxy này.
+            Email sẽ được gửi qua pool accounts theo routing rules thông thường.
+          </div>
+          <div class="toolbar">
+            <button class="btn btn-primary" onclick="app.showAddSmtpUserModal()">+ Add SMTP User</button>
+            <button class="btn btn-secondary" onclick="app.fetchSmtpUsers()">Refresh</button>
+          </div>
+          <div class="table-container">
+            <table class="data-table" id="smtp-users-table">
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Description</th>
+                  <th>Enabled</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody><!-- Populated by JS --></tbody>
+            </table>
+          </div>
+          <div class="info-banner" style="margin-top:16px">
+            <strong>📋 Cấu hình Gitea (app.ini):</strong><br>
+            <code>[mailer]<br>
+            ENABLED = true<br>
+            SMTP_ADDR = &lt;server-ip&gt;<br>
+            SMTP_PORT = 2525<br>
+            FROM = noreply@yourdomain.com<br>
+            USER = &lt;username-ở-đây&gt;<br>
+            PASSWD = &lt;password-ở-đây&gt;</code>
+          </div>
+        </div>
+
         <!-- Settings View -->
         <div id="view-settings" class="view hidden">
           <div class="card settings-card">
@@ -181,7 +218,7 @@
         <div class="form-group checkbox-group"><input type="checkbox" id="account-enabled" checked><label for="account-enabled">Enabled</label></div>
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
-          <button type="button" class="btn btn-secondary" onclick="app.testAccount()">Test Connection</button>
+          <button type="button" class="btn btn-secondary" onclick="app.testConnection()">Test Connection</button>
           <button type="submit" class="btn btn-primary">Save Account</button>
         </div>
       </form>
@@ -231,6 +268,36 @@
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
           <button type="submit" class="btn btn-primary">Import</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- SMTP User Modal -->
+  <div id="smtp-user-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2 id="smtp-user-modal-title">Add SMTP User</h2>
+      <form id="smtp-user-form" onsubmit="app.saveSmtpUser(event)">
+        <input type="hidden" id="smtp-user-id">
+        <div class="form-group">
+          <label>Username <span style="color:#888;font-size:12px">(dùng để login vào SMTP proxy)</span></label>
+          <input type="text" id="smtp-user-username" class="form-input" placeholder="gitea" required>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="smtp-user-password" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label>Description <span style="color:#888;font-size:12px">(tùy chọn)</span></label>
+          <input type="text" id="smtp-user-description" class="form-input" placeholder="Gitea mailer">
+        </div>
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="smtp-user-enabled" checked>
+          <label for="smtp-user-enabled">Enabled</label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
         </div>
       </form>
     </div>

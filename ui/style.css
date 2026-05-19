@@ -121,3 +121,7 @@ legend { padding: 0 var(--spacing-xs); font-weight: 500; }
 .progress-bg { width: 100px; height: 8px; background: var(--color-surface-strong); border-radius: 4px; display: inline-block; margin-left: 8px; vertical-align: middle; }
 .progress-fill { height: 100%; background: var(--color-link); border-radius: 4px; }
 .progress-fill.danger { background: var(--color-error); }
+
+/* Info Banner */
+.info-banner { background: #eef4ff; border: 1px solid #c3d9ff; border-radius: var(--rounded-sm); padding: var(--spacing-md) var(--spacing-lg); color: #1b4ab8; font-size: 14px; line-height: 1.6; }
+.info-banner code { display: block; margin-top: var(--spacing-sm); background: #f0f4ff; border: 1px solid #c3d9ff; border-radius: var(--rounded-xs); padding: var(--spacing-sm) var(--spacing-md); font-family: 'Courier New', monospace; font-size: 12px; color: #1a2e6e; white-space: pre-wrap; }

@@ -163,6 +163,16 @@ class Rotator {
   }
 
   findRule(email) {
+    if (!this.config.rules || this.config.rules.length === 0) {
+      // Fallback rule nếu không có rules nào trong database/config
+      return {
+        name: "Fallback-Default",
+        match: {},
+        accounts: Array.from(this.accounts.keys()),
+        order: 999,
+        enabled: true
+      };
+    }
     for (const rule of this.config.rules) {
       if (this.matches(rule.match, email)) {
         return rule;
@@ -195,7 +205,14 @@ class Rotator {
   }
 
   _advanceAccountForRule(rule) {
-    const state = this.ruleState.get(rule.name);
+    if (!rule) throw new Error("No rule provided for rotation selection");
+    
+    let state = this.ruleState.get(rule.name);
+    if (!state) {
+      state = { currentIndex: 0 };
+      this.ruleState.set(rule.name, state);
+    }
+    
     const list = rule.accounts.filter((id) => this.accounts.has(id));
     if (list.length === 0) throw new Error("No valid accounts configured for rule: " + rule.name);
 
@@ -211,7 +228,14 @@ class Rotator {
   }
 
   _getCurrentAccountId(rule) {
-    const state = this.ruleState.get(rule.name);
+    if (!rule) throw new Error("No rule provided for account selection");
+
+    let state = this.ruleState.get(rule.name);
+    if (!state) {
+      state = { currentIndex: 0 };
+      this.ruleState.set(rule.name, state);
+    }
+
     const list = rule.accounts.filter((id) => this.accounts.has(id));
     if (list.length === 0) throw new Error("No valid accounts configured for rule: " + rule.name);
 

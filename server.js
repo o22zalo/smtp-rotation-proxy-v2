@@ -6,8 +6,29 @@ const { simpleParser } = require("mailparser");
 const Rotator = require("./rotator");
 const config = require("./config");
 const net = require("net");
+const firebase = require("./db/firebase");
 
 const rotator = new Rotator(config);
+
+// ─── SMTP Virtual Users cache ────────────────────────────────────────────────
+// Để tránh query Firebase mỗi lần client kết nối, cache smtpUsers
+// và refresh định kỳ mỗi 60 giây.
+let _smtpUsersCache = [];   // [{ username, password, enabled }]
+let _smtpUsersCacheTime = 0;
+const SMTP_USERS_CACHE_TTL = 60_000; // 60s
+
+async function getSmtpUsersCache() {
+  const now = Date.now();
+  if (now - _smtpUsersCacheTime > SMTP_USERS_CACHE_TTL) {
+    const users = await firebase.getSmtpUsers();
+    if (users) {
+      _smtpUsersCache = users;
+      _smtpUsersCacheTime = now;
+      console.log(`[AUTH] Refreshed smtpUsers cache: ${users.length} user(s)`);
+    }
+  }
+  return _smtpUsersCache;
+}
 
 const INTERNAL_PORT = parseInt(process.env.PORT_SMTP_INT || "2626", 10);
 const EXTERNAL_PORT = parseInt(process.env.PORT_SMTP_EXT || "2525", 10);
@@ -18,19 +39,48 @@ const server = new SMTPServer({
   hideSTARTTLS: true,
   disableReverseLookup: true,
 
-  onAuth(auth, session, callback) {
-    console.log("[SMTP] AUTH user =", auth.username || "(none)");
-    const matchedAccount = rotator.findAccountByEmail(auth.username);
+  async onAuth(auth, session, callback) {
+    const username = auth.username || "";
+    console.log("[SMTP] AUTH user =", username || "(none)");
+
+    // 1️⃣ Kiểm tra trực tiếp qua email account (override gửi bằng account đó)
+    const matchedAccount = rotator.findAccountByEmail(username);
     if (matchedAccount) {
       if (matchedAccount.config.auth.pass === auth.password) {
         session.overrideAccountId = matchedAccount.config.id;
-        return callback(null, { user: auth.username });
+        console.log(`[AUTH] ✓ Authenticated as account: ${username}`);
+        return callback(null, { user: username });
       }
+      // username khớp account nhưng sai password — từ chối ngay
+      console.warn(`[AUTH] ✗ Wrong password for account: ${username}`);
+      return callback(new Error("Invalid username or password"));
     }
-    
+
+    // 2️⃣ Kiểm tra qua SMTP virtual users (Gitea, ứng dụng khác)
+    try {
+      const smtpUsers = await getSmtpUsersCache();
+      const virtualUser = smtpUsers.find(
+        u => u.username === username && u.enabled !== false
+      );
+      if (virtualUser) {
+        if (virtualUser.password === auth.password) {
+          // session.overrideAccountId KHÔNG set => rotator sẽ gửi theo rule thông thường
+          session.virtualUser = virtualUser.username;
+          console.log(`[AUTH] ✓ Authenticated as virtual user: ${username}`);
+          return callback(null, { user: username });
+        }
+        console.warn(`[AUTH] ✗ Wrong password for virtual user: ${username}`);
+        return callback(new Error("Invalid username or password"));
+      }
+    } catch (err) {
+      console.error('[AUTH] Error checking smtpUsers:', err.message);
+    }
+
+    // 3️⃣ Fallback: authOptional
     if (config.smtpServer.authOptional) {
-      callback(null, { user: auth.username || "anonymous" });
+      callback(null, { user: username || "anonymous" });
     } else {
+      console.warn(`[AUTH] ✗ No matching user found: ${username}`);
       callback(new Error("Invalid username or password"));
     }
   },

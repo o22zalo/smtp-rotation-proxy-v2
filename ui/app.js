@@ -6,6 +6,7 @@ const app = {
   rules: [],
   stats: {},
   settings: {},
+  smtpUsers: [],
   currentView: 'accounts',
 
   async init() {
@@ -109,6 +110,7 @@ const app = {
     if (view === 'rules') this.fetchRules();
     if (view === 'stats') this.fetchStats();
     if (view === 'settings') this.fetchSettings();
+    if (view === 'smtp-users') this.fetchSmtpUsers();
   },
 
   closeModals() {
@@ -137,6 +139,7 @@ const app = {
         <td>${acc.enabled ? 'Yes' : 'No'}</td>
         <td>
           <button class="btn btn-secondary" onclick="app.editAccount('${acc.id}')">Edit</button>
+          <button class="btn btn-secondary" onclick="app.sendTestEmail('${acc.id}')">Gửi email kiểm thử</button>
           <button class="btn btn-danger" onclick="app.deleteAccount('${acc.id}')">Delete</button>
         </td>
       `;
@@ -231,12 +234,38 @@ const app = {
     } catch(e) {}
   },
 
-  async testAccount() {
-    const id = document.getElementById('account-id').value;
-    if (!id) {
-      this.showToast('Please save the account before testing', true);
+  async testConnection() {
+    const provider = document.getElementById('account-provider').value;
+    const user = document.getElementById('account-user').value;
+    const pass = document.getElementById('account-pass').value;
+    if (!user || !pass) {
+      this.showToast('Please enter Email/Username and Password', true);
       return;
     }
+
+    const payload = {
+      provider,
+      user,
+      pass,
+      fromAddress: document.getElementById('account-from-address').value
+    };
+
+    if (provider === 'custom') {
+      payload.host = document.getElementById('account-host').value;
+      payload.port = document.getElementById('account-port').value;
+      payload.secure = document.getElementById('account-secure').checked;
+    }
+
+    try {
+      this.showToast('Testing connection...');
+      const res = await this.fetchApi('/accounts/test-connection', { method: 'POST', body: JSON.stringify(payload) });
+      this.showToast('Connection successful');
+    } catch(e) {
+      this.showToast('Connection failed: ' + e.message, true);
+    }
+  },
+
+  async sendTestEmail(id) {
     const to = prompt("Enter email address to send test to:");
     if (!to) return;
     try {
@@ -500,6 +529,101 @@ const app = {
     try {
       await this.fetchApi('/settings', { method: 'PUT', body: JSON.stringify(data) });
       this.showToast('Settings saved');
+    } catch(e) {}
+  },
+
+  // ─── SMTP Users ──────────────────────────────────────────────────────────────
+
+  async fetchSmtpUsers() {
+    try {
+      const res = await this.fetchApi('/smtp-users');
+      this.smtpUsers = res.data;
+      this.renderSmtpUsers();
+    } catch(e) {}
+  },
+
+  renderSmtpUsers() {
+    const tbody = document.querySelector('#smtp-users-table tbody');
+    tbody.innerHTML = '';
+    if (this.smtpUsers.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#888">No SMTP users yet. Click "+ Add SMTP User" to create one.</td></tr>';
+      return;
+    }
+    this.smtpUsers.forEach(u => {
+      const tr = document.createElement('tr');
+      const created = u.createdAt ? new Date(u.createdAt).toLocaleString() : '-';
+      tr.innerHTML = `
+        <td><strong>${u.username}</strong></td>
+        <td>${u.description || '<span style="color:#888">—</span>'}</td>
+        <td>${u.enabled !== false ? '<span style="color:#4caf50">✓ Yes</span>' : '<span style="color:#e57373">✗ No</span>'}</td>
+        <td style="font-size:12px;color:#888">${created}</td>
+        <td>
+          <button class="btn btn-secondary" onclick="app.editSmtpUser('${u.id}')">Edit</button>
+          <button class="btn btn-danger" onclick="app.deleteSmtpUser('${u.id}')">Delete</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  },
+
+  showAddSmtpUserModal() {
+    document.getElementById('smtp-user-form').reset();
+    document.getElementById('smtp-user-id').value = '';
+    document.getElementById('smtp-user-modal-title').textContent = 'Add SMTP User';
+    document.getElementById('smtp-user-password').required = true;
+    document.getElementById('smtp-user-modal').classList.remove('hidden');
+  },
+
+  editSmtpUser(id) {
+    const u = this.smtpUsers.find(x => x.id === id);
+    if (!u) return;
+    document.getElementById('smtp-user-form').reset();
+    document.getElementById('smtp-user-id').value = u.id;
+    document.getElementById('smtp-user-modal-title').textContent = 'Edit SMTP User';
+    document.getElementById('smtp-user-username').value = u.username;
+    document.getElementById('smtp-user-password').value = '';
+    document.getElementById('smtp-user-password').required = false;
+    document.getElementById('smtp-user-password').placeholder = 'Leave blank to keep current password';
+    document.getElementById('smtp-user-description').value = u.description || '';
+    document.getElementById('smtp-user-enabled').checked = u.enabled !== false;
+    document.getElementById('smtp-user-modal').classList.remove('hidden');
+  },
+
+  async saveSmtpUser(e) {
+    e.preventDefault();
+    const id = document.getElementById('smtp-user-id').value;
+    const password = document.getElementById('smtp-user-password').value;
+    const data = {
+      username: document.getElementById('smtp-user-username').value.trim(),
+      description: document.getElementById('smtp-user-description').value.trim(),
+      enabled: document.getElementById('smtp-user-enabled').checked
+    };
+    if (password) data.password = password;
+
+    try {
+      if (id) {
+        await this.fetchApi(`/smtp-users/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+        this.showToast('SMTP User updated');
+      } else {
+        if (!password) {
+          this.showToast('Password is required', true);
+          return;
+        }
+        data.password = password;
+        await this.fetchApi('/smtp-users', { method: 'POST', body: JSON.stringify(data) });
+        this.showToast('SMTP User created');
+      }
+      this.closeModals();
+      this.fetchSmtpUsers();
+    } catch(e) {}
+  },
+
+  async deleteSmtpUser(id) {
+    if (!confirm('Delete this SMTP user? Clients using it will no longer be able to authenticate.')) return;
+    try {
+      await this.fetchApi(`/smtp-users/${id}`, { method: 'DELETE' });
+      this.showToast('SMTP User deleted');
+      this.fetchSmtpUsers();
     } catch(e) {}
   }
 };
